@@ -84,6 +84,37 @@ module HackerOne
         end
       end
 
+      ## Returns all reports matching filter
+      #
+      # program: the HackerOne program to search on (configure globally with Hackerone::Client.program=)
+      # filter (optional): Hash constructed in the way corresponding to HackerOne API doc. For example:
+      #   client.reports_find({state: ["resolved", "informative"]})
+      #
+      # returns all open reports or an empty array
+      def reports_find(filter={})
+        raise ArgumentError, "Program cannot be nil" unless program
+
+        filter[:program] = [program]
+        page = 1
+        data = []
+
+        #FIXME pagination would be need clean up and abstracting out from this method
+
+        loop do
+          response = self.class.hackerone_api_connection.get do |req|
+            req.url "reports", {filter: filter, page: {size: 25, number: page}}
+          end
+
+          data.concat(self.class.parse_response(response))
+          break unless JSON.parse(response.body, :symbolize_names => true)[:links][:next]
+          page += 1
+        end
+
+        data.map do |report|
+          Report.new(report)
+        end
+      end
+
       ## Public: retrieve a report
       #
       # id: the ID of a specific report
